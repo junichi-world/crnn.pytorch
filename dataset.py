@@ -29,7 +29,7 @@ class lmdbDataset(Dataset):
             sys.exit(0)
 
         with self.env.begin(write=False) as txn:
-            nSamples = int(txn.get('num-samples'))
+            nSamples = int(txn.get(b'num-samples'))
             self.nSamples = nSamples
 
         self.transform = transform
@@ -39,10 +39,10 @@ class lmdbDataset(Dataset):
         return self.nSamples
 
     def __getitem__(self, index):
-        assert index <= len(self), 'index range error'
+        assert 0 <= index < len(self), 'index range error'
         index += 1
         with self.env.begin(write=False) as txn:
-            img_key = 'image-%09d' % index
+            img_key = ('image-%09d' % index).encode()
             imgbuf = txn.get(img_key)
 
             buf = six.BytesIO()
@@ -52,13 +52,13 @@ class lmdbDataset(Dataset):
                 img = Image.open(buf).convert('L')
             except IOError:
                 print('Corrupted image for %d' % index)
-                return self[index + 1]
+                return self[(index % len(self))]
 
             if self.transform is not None:
                 img = self.transform(img)
 
-            label_key = 'label-%09d' % index
-            label = str(txn.get(label_key))
+            label_key = ('label-%09d' % index).encode()
+            label = txn.get(label_key).decode('utf-8')
 
             if self.target_transform is not None:
                 label = self.target_transform(label)
@@ -90,17 +90,18 @@ class randomSequentialSampler(sampler.Sampler):
         n_batch = len(self) // self.batch_size
         tail = len(self) % self.batch_size
         index = torch.LongTensor(len(self)).fill_(0)
+        max_start = max(0, len(self) - self.batch_size)
         for i in range(n_batch):
-            random_start = random.randint(0, len(self) - self.batch_size)
-            batch_index = random_start + torch.range(0, self.batch_size - 1)
+            random_start = random.randint(0, max_start)
+            batch_index = random_start + torch.arange(0, self.batch_size, dtype=torch.long)
             index[i * self.batch_size:(i + 1) * self.batch_size] = batch_index
         # deal with tail
         if tail:
-            random_start = random.randint(0, len(self) - self.batch_size)
-            tail_index = random_start + torch.range(0, tail - 1)
-            index[(i + 1) * self.batch_size:] = tail_index
+            random_start = random.randint(0, max_start)
+            tail_index = random_start + torch.arange(0, tail, dtype=torch.long)
+            index[n_batch * self.batch_size:] = tail_index
 
-        return iter(index)
+        return iter(index.tolist())
 
     def __len__(self):
         return self.num_samples

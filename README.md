@@ -24,8 +24,11 @@ Expected output:
 
 Dependence
 ----------
-* [warp_ctc_pytorch](https://github.com/SeanNaren/warp-ctc/tree/pytorch_bindings/pytorch_binding)
+* PyTorch (built-in `torch.nn.CTCLoss` is used, `warp_ctc_pytorch` is no longer required)
+* torchvision
 * lmdb
+
+For Windows / Python 3.10+ / CUDA 12.8, install PyTorch from the official selector first (matching your CUDA runtime), then install the remaining packages from `requirements.txt`.
 
 Train a new model
 -----------------

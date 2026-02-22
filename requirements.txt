@@ -1,6 +1,8 @@
-lmdb==0.97
-numpy==1.17.2
-Pillow==9.0.0
-six==1.12.0
-torch==1.2.0
-torchvision==0.4.0
+lmdb==1.7.5
+numpy==2.2.6
+Pillow==12.1.1
+six>=1.16.0
+torch==2.10.0
+torchvision==0.25.0
+# For NVIDIA GPU on Windows/Linux, install the CUDA build from PyTorch's index, e.g.:
+# pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cu128

@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-import collections
+from collections.abc import Iterable
 
 
 class strLabelConverter(object):
@@ -40,12 +40,26 @@ class strLabelConverter(object):
             torch.IntTensor [n]: length of each text.
         """
         if isinstance(text, str):
-            text = [
-                self.dict[char.lower() if self._ignore_case else char]
-                for char in text
-            ]
+            encoded = []
+            unknown_chars = []
+            for char in text:
+                key = char.lower() if self._ignore_case else char
+                index = self.dict.get(key)
+                if index is None:
+                    unknown_chars.append(char)
+                    continue
+                encoded.append(index)
+
+            if unknown_chars:
+                unique_unknown = ''.join(sorted(set(unknown_chars)))
+                raise KeyError(
+                    "Unsupported character(s) {!r} found in text {!r}. "
+                    "Add them to the alphabet (for example via --alphabet).".format(
+                        unique_unknown, text))
+
+            text = encoded
             length = [len(text)]
-        elif isinstance(text, collections.Iterable):
+        elif isinstance(text, Iterable):
             length = [len(s) for s in text]
             text = ''.join(text)
             text, _ = self.encode(text)
@@ -65,23 +79,24 @@ class strLabelConverter(object):
             text (str or list of str): texts to convert.
         """
         if length.numel() == 1:
-            length = length[0]
+            length = int(length[0].item())
             assert t.numel() == length, "text with length: {} does not match declared length: {}".format(t.numel(), length)
             if raw:
-                return ''.join([self.alphabet[i - 1] for i in t])
+                return ''.join([self.alphabet[int(i) - 1] for i in t])
             else:
                 char_list = []
                 for i in range(length):
                     if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])):
-                        char_list.append(self.alphabet[t[i] - 1])
+                        char_list.append(self.alphabet[int(t[i]) - 1])
                 return ''.join(char_list)
         else:
             # batch mode
-            assert t.numel() == length.sum(), "texts with length: {} does not match declared length: {}".format(t.numel(), length.sum())
+            total_length = int(length.sum().item())
+            assert t.numel() == total_length, "texts with length: {} does not match declared length: {}".format(t.numel(), total_length)
             texts = []
             index = 0
             for i in range(length.numel()):
-                l = length[i]
+                l = int(length[i].item())
                 texts.append(
                     self.decode(
                         t[index:index + l], torch.IntTensor([l]), raw=raw))
@@ -114,6 +129,8 @@ class averager(object):
         res = 0
         if self.n_count != 0:
             res = self.sum / float(self.n_count)
+        if isinstance(res, torch.Tensor):
+            res = res.item()
         return res
 
 
@@ -131,13 +148,14 @@ def oneHot(v, v_length, nc):
 
 
 def loadData(v, data):
-    v.data.resize_(data.size()).copy_(data)
+    with torch.no_grad():
+        v.resize_(data.size()).copy_(data)
 
 
 def prettyPrint(v):
     print('Size {0}, Type: {1}'.format(str(v.size()), v.data.type()))
-    print('| Max: %f | Min: %f | Mean: %f' % (v.max().data[0], v.min().data[0],
-                                              v.mean().data[0]))
+    print('| Max: %f | Min: %f | Mean: %f' % (v.max().item(), v.min().item(),
+                                              v.mean().item()))
 
 
 def assureRatio(img):

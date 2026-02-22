@@ -5,7 +5,7 @@ import sys
 import unittest
 import torch
 from torch.autograd import Variable
-import collections
+from collections.abc import Iterable
 origin_path = sys.path
 sys.path.append("..")
 import utils
@@ -17,7 +17,7 @@ def equal(a, b):
         return a.equal(b)
     elif isinstance(a, str):
         return a == b
-    elif isinstance(a, collections.Iterable):
+    elif isinstance(a, Iterable):
         res = True
         for (x, y) in zip(a, b):
             res = res & equal(x, y)
